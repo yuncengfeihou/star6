@@ -805,84 +805,41 @@ async function handlePreviewButtonClick() {
              await new Promise(resolve => requestAnimationFrame(resolve)); // 仍然等待一帧确保UI稳定
         }
 
-        // --- **步骤 2.5: 尝试重命名新创建的聊天 (在切换确认后, 清空前)** ---
+        // --- **步骤 2.5: 尝试重命名新创建的聊天 (在切换确认后, 清空前) ** ---
         if (isFirstPreview) {
+            const originalChatIdForRename = targetPreviewChatId; // 保存原始ID用于调用 renameChat
+            const targetPreviewName = "预览聊天"; // 使用用户要求的名称
+
             try {
-                console.log(`${pluginName}: Attempting to rename NEW chat (${targetPreviewChatId}) to "<预览聊天>" immediately after switch confirmation...`);
-                await renameChat(targetPreviewChatId, "<预览聊天>");
-                console.log(`${pluginName}: New chat rename attempt possibly successful.`);
-                // renameChat 可能没有直接的成功/失败返回值，依赖其内部实现
+                console.log(`${pluginName}: Attempting to rename NEW chat (${originalChatIdForRename}) to "${targetPreviewName}" immediately after switch confirmation...`);
+                // **关键：使用原始ID调用 renameChat**
+                await renameChat(originalChatIdForRename, targetPreviewName);
+                console.log(`${pluginName}: Chat rename attempt finished (may or may not have succeeded, renameChat has no reliable return).`);
+                // 不在此处更新 targetPreviewChatId
             } catch (renameError) {
-                console.warn(`${pluginName}: Renaming NEW chat (${targetPreviewChatId}) immediately failed, proceeding anyway:`, renameError);
-                // 即使重命名失败也继续
+                // 捕获 renameChat 可能抛出的错误，只记录警告，不显示弹窗，继续执行
+                console.warn(`${pluginName}: renameChat call for (${originalChatIdForRename}) to "${targetPreviewName}" failed or threw an error. Proceeding anyway. Error details:`, renameError);
+                // 不在此处更新 targetPreviewChatId，也不显示 toastr.error
+            }
+
+            // *** 关键：无论 try/catch 结果如何，都在之后更新 targetPreviewChatId ***
+            // 这确保了步骤 6 的检查能使用当前的实际 chatId
+            const contextAfterRenameAttempt = getContext();
+            if (contextAfterRenameAttempt.chatId) {
+                console.log(`${pluginName}: Updating targetPreviewChatId to current context value: ${contextAfterRenameAttempt.chatId} (was: ${targetPreviewChatId}) before clearing chat.`);
+                targetPreviewChatId = contextAfterRenameAttempt.chatId; // 使用当前获取到的 ID
+            } else {
+                // 如果此时无法获取 chatId，这是一个潜在问题，但我们仍然继续
+                console.warn(`${pluginName}: Could not get valid chatId from context after rename attempt. Proceeding with potentially outdated targetPreviewChatId: ${targetPreviewChatId}`);
             }
         }
-
-
-        // --- **步骤 2.5: 尝试重命名聊天 (在切换确认后, 清空前)** ---
-        // 引入一个明确的变量来存储需要被重命名的原始ID
-        let chatIdToRename = targetPreviewChatId; // Initially holds the ID determined in Step 1
-
-        // 目标名称，移除尖括号以提高兼容性
-        const targetPreviewName = "PreviewChat";
-
-        // 仅在首次预览或检测到名称不是目标名称时尝试重命名
-        // 获取当前上下文以检查当前名称
-        const contextBeforeRename = getContext();
-        if (isFirstPreview || contextBeforeRename.chatId !== targetPreviewName) {
-            try {
-                console.log(`${pluginName}: Attempting to rename chat (${chatIdToRename}) to "${targetPreviewName}" immediately after switch confirmation...`);
-                // **关键：使用 chatIdToRename (原始ID) 作为第一个参数**
-                await renameChat(chatIdToRename, targetPreviewName);
-                console.log(`${pluginName}: Chat rename attempt possibly successful.`);
-
-                // *** 更新 targetPreviewChatId 以匹配重命名后的 context.chatId ***
-                // 这对于步骤 6 的检查至关重要
-                const contextAfterRename = getContext();
-                if (contextAfterRename.chatId) {
-                    console.log(`${pluginName}: Updating targetPreviewChatId from ${targetPreviewChatId} to ${contextAfterRename.chatId} after rename attempt.`);
-                    targetPreviewChatId = contextAfterRename.chatId; // 更新为 rename 后 context 返回的 ID
-                } else {
-                    console.warn(`${pluginName}: Could not get valid chatId from context after rename attempt. Keeping previous target ID: ${targetPreviewChatId}`);
-                }
-
-           } catch (renameError) {
-               // 捕获 renameChat 可能抛出的错误 (包括网络错误)
-               // 记录更详细的错误信息，有助于诊断
-               console.error(`${pluginName}: Caught error during rename chat (${chatIdToRename}) to "${targetPreviewName}". Error object:`, renameError);
-
-               // *** 关键修改：在显示错误弹窗前，检查重命名是否实际成功 ***
-               const contextAfterFailedRename = getContext();
-               let showRenameErrorPopup = true; // 默认显示错误
-
-               // 检查当前 context 的 chatId 是否已经是目标名称
-               if (contextAfterFailedRename.chatId === targetPreviewName) {
-                   // 如果已经是目标名称，说明 renameChat 抛错，但重命名实际成功了
-                   console.warn(`${pluginName}: renameChat threw an error, but context shows the chat is now named "${targetPreviewName}". Suppressing the error popup.`);
-                   showRenameErrorPopup = false; // 不显示错误弹窗
-               }
-
-               // 只有在重命名确实没有成功（根据 context 判断）时，才显示错误弹窗
-               if (showRenameErrorPopup) {
-                   // 使用更具体的错误消息，如果 renameError 有 message 属性的话
-                   const errorMessage = (renameError instanceof Error && renameError.message) ? renameError.message : '请查看控制台';
-                   toastr.error(`重命名预览聊天时遇到问题: ${errorMessage}`);
-               }
-
-               // 即使重命名失败（或看似失败），也尝试更新 targetPreviewChatId 以便后续检查可能通过
-               if (contextAfterFailedRename.chatId) {
-                   // 无论如何，都用当前 context 的 chatId 更新 targetPreviewChatId
-                   targetPreviewChatId = contextAfterFailedRename.chatId;
-                   console.log(`${pluginName}: Updated targetPreviewChatId to "${targetPreviewChatId}" within catch block after checking context.`);
-               } else {
-                   console.warn(`${pluginName}: Could not get valid chatId from context within catch block. targetPreviewChatId remains unchanged.`);
-               }
-           }
-        } else {
-             console.log(`${pluginName}: Chat name is already "${targetPreviewName}", skipping rename.`);
-             // 确保 targetPreviewChatId 与当前 context 一致
-             if (contextBeforeRename.chatId) {
-                 targetPreviewChatId = contextBeforeRename.chatId;
+        // 对于非 isFirstPreview 的情况，我们不需要重命名，但为了保险起见，
+        // 也可以在这里确保 targetPreviewChatId 与当前 context 一致
+        else {
+             const currentContextCheck = getContext();
+             if (currentContextCheck.chatId && currentContextCheck.chatId !== targetPreviewChatId) {
+                  console.log(`${pluginName}: Aligning targetPreviewChatId (${targetPreviewChatId}) with current context (${currentContextCheck.chatId}) for existing preview chat.`);
+                  targetPreviewChatId = currentContextCheck.chatId;
              }
         }
 
