@@ -871,7 +871,6 @@ async function handlePreviewButtonClick() {
                     await finalContext.addOneMessage(message, {
                         scroll: false,
                         forceId: originalMesid
-                        showSwipes: false
                     });
                     addedCount++;
 
