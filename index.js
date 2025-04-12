@@ -824,7 +824,7 @@ async function handlePreviewButtonClick() {
         let chatIdToRename = targetPreviewChatId; // Initially holds the ID determined in Step 1
 
         // 目标名称，移除尖括号以提高兼容性
-        const targetPreviewName = "预览聊天";
+        const targetPreviewName = "PreviewChat";
 
         // 仅在首次预览或检测到名称不是目标名称时尝试重命名
         // 获取当前上下文以检查当前名称
