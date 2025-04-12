@@ -846,19 +846,38 @@ async function handlePreviewButtonClick() {
                     console.warn(`${pluginName}: Could not get valid chatId from context after rename attempt. Keeping previous target ID: ${targetPreviewChatId}`);
                 }
 
-            } catch (renameError) {
-                // 捕获 renameChat 可能抛出的错误 (包括网络错误)
-                console.error(`${pluginName}: Renaming chat (${chatIdToRename}) to "${targetPreviewName}" failed:`, renameError);
-                toastr.error(`重命名预览聊天失败: ${renameError.message || '请查看控制台'}`);
-                // 即使重命名失败，也尝试更新 targetPreviewChatId 以便后续检查可能通过（如果 context 仍然正确）
-                const contextAfterFailedRename = getContext();
-                 if (contextAfterFailedRename.chatId) {
-                     targetPreviewChatId = contextAfterFailedRename.chatId;
-                     console.log(`${pluginName}: Updated targetPreviewChatId to ${targetPreviewChatId} even after rename failure.`);
-                 }
-                 // 注意：如果重命名是预览功能的关键部分，你可能希望在这里 return 或采取其他措施
-                 // 但目前设计是“尽力而为”，即使重命名失败也继续尝试填充
-            }
+           } catch (renameError) {
+               // 捕获 renameChat 可能抛出的错误 (包括网络错误)
+               // 记录更详细的错误信息，有助于诊断
+               console.error(`${pluginName}: Caught error during rename chat (${chatIdToRename}) to "${targetPreviewName}". Error object:`, renameError);
+
+               // *** 关键修改：在显示错误弹窗前，检查重命名是否实际成功 ***
+               const contextAfterFailedRename = getContext();
+               let showRenameErrorPopup = true; // 默认显示错误
+
+               // 检查当前 context 的 chatId 是否已经是目标名称
+               if (contextAfterFailedRename.chatId === targetPreviewName) {
+                   // 如果已经是目标名称，说明 renameChat 抛错，但重命名实际成功了
+                   console.warn(`${pluginName}: renameChat threw an error, but context shows the chat is now named "${targetPreviewName}". Suppressing the error popup.`);
+                   showRenameErrorPopup = false; // 不显示错误弹窗
+               }
+
+               // 只有在重命名确实没有成功（根据 context 判断）时，才显示错误弹窗
+               if (showRenameErrorPopup) {
+                   // 使用更具体的错误消息，如果 renameError 有 message 属性的话
+                   const errorMessage = (renameError instanceof Error && renameError.message) ? renameError.message : '请查看控制台';
+                   toastr.error(`重命名预览聊天时遇到问题: ${errorMessage}`);
+               }
+
+               // 即使重命名失败（或看似失败），也尝试更新 targetPreviewChatId 以便后续检查可能通过
+               if (contextAfterFailedRename.chatId) {
+                   // 无论如何，都用当前 context 的 chatId 更新 targetPreviewChatId
+                   targetPreviewChatId = contextAfterFailedRename.chatId;
+                   console.log(`${pluginName}: Updated targetPreviewChatId to "${targetPreviewChatId}" within catch block after checking context.`);
+               } else {
+                   console.warn(`${pluginName}: Could not get valid chatId from context within catch block. targetPreviewChatId remains unchanged.`);
+               }
+           }
         } else {
              console.log(`${pluginName}: Chat name is already "${targetPreviewName}", skipping rename.`);
              // 确保 targetPreviewChatId 与当前 context 一致
