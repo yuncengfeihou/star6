@@ -1,11 +1,11 @@
-// public/extensions/third-party/favorites-plugin/index.js
+// public/extensions/third-party/favorites-plugin/index_new.js
 
 // Import from the core script
 import {
     eventSource,
     event_types,
     messageFormatting,
-    chat,                     // 用于访问聊天记录
+    chat,                     // 用于访问聊天记录 (优化方案需要)
     clearChat,                // 用于清空聊天
     doNewChat,                // 用于创建新聊天
     openCharacterChat,        // 用于打开角色聊天
@@ -40,7 +40,7 @@ import {
 } from '../../../utils.js';
 
 // Define plugin folder name (important for consistency)
-const pluginName = 'star6'; 
+const pluginName = 'star6';
 
 // Initialize plugin settings if they don't exist
 if (!extension_settings[pluginName]) {
@@ -672,6 +672,7 @@ async function handleClearInvalidFavorites() {
     }
 }
 
+
 /**
  * 确保预览聊天的数据存在
  * @returns {object} 包含当前聊天和角色/群组信息
@@ -750,8 +751,8 @@ async function handlePreviewButtonClick() {
                     // await openCharacterChat(existingPreviewChatId); // 假设只传 chatId 即可切换
                     // 更稳妥的方式可能是先获取角色信息，再调用
                     // await openCharacterChat(characterId, existingPreviewChatId); // 确认 API 签名
-                    // 基于现有 index.js 对 openCharacterChat 的导入和使用，它可能只接受 chatId
-                    await openCharacterChat(existingPreviewChatId); // 保持与原 index.js 一致的用法
+                    // 基于现有 star6.js 对 openCharacterChat 的导入和使用，它可能只接受 chatId
+                    await openCharacterChat(existingPreviewChatId); // 保持与原 star6.js 一致的用法
                 }
             }
         } else {
@@ -926,6 +927,8 @@ async function handlePreviewButtonClick() {
         toastr.error(`创建预览时出错: ${errorMsg}`);
     }
 }
+
+// --- END OF OPTIMIZED PREVIEW FUNCTION SECTION ---
 
 
 /**
@@ -1174,7 +1177,7 @@ jQuery(async () => {
         }
 
 
-        console.log(`${pluginName}: 插件加载完成!`);
+        console.log(`${pluginName}: 插件加载完成! (已应用优化方案 7.0)`);
     } catch (error) {
         console.error(`${pluginName}: 初始化过程中出错:`, error);
     }
