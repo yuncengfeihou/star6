@@ -517,9 +517,16 @@ function showFavoritesPopup() {
                         updateFavoritesPopup();
                     }
                 }
-                // Handle preview button
                 else if (target.hasClass('preview-favorites-btn')) {
-                    handlePreviewButtonClick(); // Call the optimized function
+                    // 1. 调用预览功能 (注意：它是异步的，但我们不需要在这里 await 它，
+                    //    因为我们希望立即关闭弹窗，让预览在后台进行)
+                    handlePreviewButtonClick();
+
+                    // 2. 关闭收藏夹弹窗
+                    if (favoritesPopup) { // 做个简单的安全检查
+                        favoritesPopup.hide();
+                        console.log(`${pluginName}: 点击预览按钮，关闭收藏夹弹窗。`);
+                    }
                 }
                 // Handle close button
                 else if (target.hasClass('close-popup')) {
